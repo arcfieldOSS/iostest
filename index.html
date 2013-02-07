@@ -1,8 +1,126 @@
 <!DOCTYPE html>
-<html>
+<html manifest="iostest.manifest">
 <head>
-<title>iostest</title>
+
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=0"/>
+    <title>iostest</title>
+    <script type="text/javascript" src="jquery-1.9.1.min.js"></script>
+    <script type="text/javascript">
+
+        function populateDB(tx) {
+            tx.executeSql('CREATE TABLE IF NOT EXISTS DEMO (id INTEGER PRIMARY KEY , data)');
+        }
+
+        // Transaction error callback
+        //
+        function errorCB(tx, err) {
+            console.log("Error processing SQL: "+err);
+        }
+
+        // Transaction success callback
+        //
+        function successCB() {
+            console.log("success!");
+        }
+
+
+        function insertDemoData(db,data) {
+            console.log("inserting",data);
+            var $data = data;
+            db.transaction(function(tx) {
+                        console.log("Closure value is",data);
+                tx.executeSql("INSERT INTO DEMO (data) VALUES ( ? )",
+                [data],
+                successCB,
+                errorCB)
+            },errorCB,successCB
+            )
+        }
+
+
+
+        function displayResults( tx, results ){
+
+            if(results.rows.length == 0) {
+                alert("No records found");
+                return false;
+            }
+
+
+            for(var i=0; i<results.rows.length; i++) {
+                console.log("got records",results.rows.item(i));
+                $("#results > tbody").append("<tr><td>" + results.rows.item(i).id + "</td><td>" +  results.rows.item(i).data + "</td></tr>");
+                setLast(results.rows.item(i).id);
+            }
+
+        }
+
+        function refresh(db) {
+            db.transaction(
+                    function(tx){
+                        tx.executeSql( "SELECT * FROM DEMO WHERE id > ?",
+                                [getLast()],
+                                displayResults,
+                                errorCB() )
+                    },
+                    errorCB(),
+                    successCB()
+            )
+        }
+
+        function setLast(i) {
+            window.highwater = i;
+        }
+
+        function getLast() {
+            if (window.highwater == undefined) {window.highwater = 0}
+            return window.highwater;
+        }
+
+        function initialize() {
+
+            console.log("initializing");
+            var db = openDatabase('data', '1.0', 'the data store', 2 * 1024 * 1024);
+            db.transaction(populateDB);
+            $('#savedata').on('click',function() {insertDemoData(db,$("#datafield").val())});
+            $('#refresh').on('click',function() {refresh(db)});
+        }
+
+
+
+        $(document).ready(initialize);
+    </script>
+    <style type="text/css">
+        div {padding: 8px;}
+        #refresh { background-color: #CCC;
+            border: 2px outset #AAA;
+            color: black;
+            text-align: center;
+        }
+        #results {
+            height: 200px;
+            overflow: auto;
+            margin: 8px;
+            border-radius: 8px;
+            border: 1px solid #CCC;
+        }
+    </style>
 </head>
 <body>
+<div id="entryform">
+    <form name="foo">
+        <input id="datafield" type="text" />
+        <input id="savedata" type="button" value="INSERT" />
+    </form>
+</div>
+<div id="refresh">refresh</div>
+<table id="results">
+    <thead>
+    <tr><td>ID</td><td>Data</td></tr>
+    </thead>
+    <tbody>
+
+    </tbody>
+</table>
 </body>
 </html>
